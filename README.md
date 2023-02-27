@@ -50,10 +50,10 @@ Writer:
 
 A commit transaction containing a taproot with one leaf script
 
-    OP_0
-    OP_IF
     <embedded data>
-    OP_ENDIF
+    OP_DROP
+    <pubkey>
+    OP_CHECKSIG
 
 is used to create a new bech32m address and is sent an output.
 
