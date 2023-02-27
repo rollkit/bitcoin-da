@@ -13,7 +13,6 @@ import (
 	"github.com/btcsuite/btcd/rpcclient"
 	"github.com/btcsuite/btcd/txscript"
 	"github.com/btcsuite/btcd/wire"
-	"github.com/davecgh/go-spew/spew"
 )
 
 // Sample data and keys for testing.
@@ -74,7 +73,15 @@ func (r Relayer) revealTx(commitHash *chainhash.Hash) error {
 	if err != nil {
 		return fmt.Errorf("error getting raw commit tx: %v", err)
 	}
-
+	var commitIndex int
+	var commitOutput *wire.TxOut
+	for i, out := range rawCommitTx.MsgTx().TxOut {
+		if out.Value == 100000 {
+			commitIndex = i
+			commitOutput = out
+			break
+		}
+	}
 
 	privKey, err := btcutil.DecodeWIF(bobPrivateKey)
 	if err != nil {
@@ -121,7 +128,7 @@ func (r Relayer) revealTx(commitHash *chainhash.Hash) error {
 	tx.AddTxIn(&wire.TxIn{
 		PreviousOutPoint: wire.OutPoint{
 			Hash:  *rawCommitTx.Hash(),
-			Index: 1,
+			Index: uint32(commitIndex),
 		},
 	})
 	txOut := &wire.TxOut{
@@ -129,12 +136,18 @@ func (r Relayer) revealTx(commitHash *chainhash.Hash) error {
 	}
 	tx.AddTxOut(txOut)
 
-	sigHashes := txscript.NewTxSigHashes(tx, txscript.NewCannedPrevOutputFetcher(txOut.PkScript, txOut.Value))
+	inputFetcher := txscript.NewCannedPrevOutputFetcher(
+		commitOutput.PkScript,
+		commitOutput.Value,
+	)
+	sigHashes := txscript.NewTxSigHashes(tx, inputFetcher)
+
 	sig, err := txscript.RawTxInTapscriptSignature(
 		tx, sigHashes, 0, txOut.Value,
 		txOut.PkScript, tapLeaf, txscript.SigHashDefault,
 		privKey.PrivKey,
 	)
+
 	if err != nil {
 		return fmt.Errorf("error signing tapscript: %v", err)
 	}
@@ -155,7 +168,7 @@ func (r Relayer) revealTx(commitHash *chainhash.Hash) error {
 		return err
 	}
 
-	spew.Dump(hex.EncodeToString(buf.Bytes()))
+	fmt.Println(hex.EncodeToString(buf.Bytes()))
 	return nil
 }
 
