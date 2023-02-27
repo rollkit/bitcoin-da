@@ -7,27 +7,19 @@ This package provides a reader / writer interface to bitcoin.
 Example:
 ========
 
-	embeddedData := []byte("00")
-	address, err := createTaprootAddress(embeddedData)
-	if err != nil {
-		fmt.Println(err)
-		return
-	}
-	relayer, err := NewRelayer()
-	if err != nil {
-		fmt.Println(err)
-		return
-	}
-	defer relayer.Close()
-	hash, err := relayer.commitTx(address)
-	if err != nil {
-		fmt.Println(err)
-		return
-	}
-	err = relayer.revealTx(hash)
-	if err != nil {
-		fmt.Println(err)
-		return
+	// ExampleWrite tests that write data to the blockchain works as expected. It
+	// returns the transaction hash of the reveal transaction.
+	func ExampleWrite() {
+		// Example usage
+		fmt.Println("writing...")
+		_, err := rollkitbtc.Write([]byte("rollkit-btc: gm"))
+		if err != nil {
+			fmt.Println(err)
+			return
+		}
+		fmt.Println("done")
+		// Output: writing...
+		// done
 	}
 
 
