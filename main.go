@@ -121,7 +121,7 @@ func commitTx(addr string) error {
 	return nil
 }
 
-func revealTx(prev wire.OutPoint) error {
+func revealTx(prev wire.MsgTx, op wire.OutPoint) error {
 	revealPrivKey, err := btcutil.DecodeWIF(revealPrivateKey)
 	if err != nil {
 		return fmt.Errorf("error decoding reveal private key: %v", err)
@@ -158,20 +158,18 @@ func revealTx(prev wire.OutPoint) error {
 
 	tx := wire.NewMsgTx(2)
 	tx.AddTxIn(&wire.TxIn{
-		PreviousOutPoint: wire.OutPoint{
-			Hash:  prev.Hash,
-			Index: prev.Index,
-		},
+		PreviousOutPoint: op,
 	})
 	txOut := &wire.TxOut{
 		Value: 1e8, PkScript: p2trScript,
 	}
 	tx.AddTxOut(txOut)
 
+	sigHashes := txscript.NewTxSigHashes(tx, txscript.NewCannedPrevOutputFetcher(txOut.PkScript, txOut.Value))
 	sig, err := txscript.RawTxInTapscriptSignature(
 		tx, sigHashes, 0, txOut.Value,
 		txOut.PkScript, tapLeaf, txscript.SigHashDefault,
-		revealPrivKey,
+		revealPrivKey.PrivKey,
 	)
 	if err != nil {
 		return fmt.Errorf("error signing tapscript: %v", err)
