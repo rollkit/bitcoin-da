@@ -76,18 +76,26 @@ func (r Relayer) revealTx(commitHash *chainhash.Hash) error {
 		return fmt.Errorf("error getting raw commit tx: %v", err)
 	}
 
-	revealPrivKey, err := btcutil.DecodeWIF(revealPrivateKey)
+
+	privKey, err := btcutil.DecodeWIF(bobPrivateKey)
 	if err != nil {
-		return fmt.Errorf("error decoding reveal private key: %v", err)
+		return fmt.Errorf("error decoding bob private key: %v", err)
 	}
 
-	revealPubKey := revealPrivKey.PrivKey.PubKey()
+	pubKey := privKey.PrivKey.PubKey()
+
+	internalPrivKey, err := btcutil.DecodeWIF(internalPrivateKey)
+	if err != nil {
+		return fmt.Errorf("error decoding internal private key: %v", err)
+	}
+
+	internalPubKey := internalPrivKey.PrivKey.PubKey()
 
 	// Our script will be a simple OP_CHECKSIG as the sole leaf of a
 	// tapscript tree. We'll also re-use the internal key as the key in the
 	// leaf.
 	builder := txscript.NewScriptBuilder()
-	builder.AddData(schnorr.SerializePubKey(revealPubKey))
+	builder.AddData(schnorr.SerializePubKey(pubKey))
 	builder.AddOp(txscript.OP_CHECKSIG)
 	pkScript, err := builder.Script()
 	if err != nil {
@@ -98,12 +106,12 @@ func (r Relayer) revealTx(commitHash *chainhash.Hash) error {
 	tapScriptTree := txscript.AssembleTaprootScriptTree(tapLeaf)
 
 	ctrlBlock := tapScriptTree.LeafMerkleProofs[0].ToControlBlock(
-		revealPubKey,
+		internalPubKey,
 	)
 
 	tapScriptRootHash := tapScriptTree.RootNode.TapHash()
 	outputKey := txscript.ComputeTaprootOutputKey(
-		revealPubKey, tapScriptRootHash[:],
+		internalPubKey, tapScriptRootHash[:],
 	)
 	p2trScript, err := payToTaprootScript(outputKey)
 	if err != nil {
@@ -114,7 +122,7 @@ func (r Relayer) revealTx(commitHash *chainhash.Hash) error {
 	tx.AddTxIn(&wire.TxIn{
 		PreviousOutPoint: wire.OutPoint{
 			Hash:  *rawCommitTx.Hash(),
-			Index: 0,
+			Index: 1,
 		},
 	})
 	txOut := &wire.TxOut{
@@ -126,7 +134,7 @@ func (r Relayer) revealTx(commitHash *chainhash.Hash) error {
 	sig, err := txscript.RawTxInTapscriptSignature(
 		tx, sigHashes, 0, txOut.Value,
 		txOut.PkScript, tapLeaf, txscript.SigHashDefault,
-		revealPrivKey.PrivKey,
+		privKey.PrivKey,
 	)
 	if err != nil {
 		return fmt.Errorf("error signing tapscript: %v", err)
@@ -161,7 +169,6 @@ func payToTaprootScript(taprootKey *btcec.PublicKey) ([]byte, error) {
 }
 
 func createTaprootAddress(embeddedData []byte) (string, error) {
-	// Sign the transaction with the sample keypair.
 	privKey, err := btcutil.DecodeWIF(bobPrivateKey)
 	if err != nil {
 		return "", fmt.Errorf("error decoding bob private key: %v", err)
