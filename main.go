@@ -235,6 +235,7 @@ func main() {
 		fmt.Println(err)
 		return
 	}
+	defer relayer.Close()
 	hash, err := relayer.commitTx(address)
 	if err != nil {
 		fmt.Println(err)
