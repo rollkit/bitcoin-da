@@ -7,7 +7,7 @@ This package provides a reader / writer interface to bitcoin.
 Example:
 ========
 
-	// ExampleWrite tests that write data to the blockchain works as expected.
+	// ExampleWrite tests that writing data to the blockchain works as expected.
 	func ExampleWrite() {
 		// Example usage
 		fmt.Println("writing...")

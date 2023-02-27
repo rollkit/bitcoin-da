@@ -6,8 +6,7 @@ import (
 	rollkitbtc "github.com/rollkit/rollkit-btc"
 )
 
-// ExampleWrite tests that write data to the blockchain works as expected. It
-// returns the transaction hash of the reveal transaction.
+// ExampleWrite tests that writing data to the blockchain works as expected.
 func ExampleWrite() {
 	// Example usage
 	fmt.Println("writing...")
