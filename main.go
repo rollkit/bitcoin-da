@@ -1,8 +1,6 @@
 package main
 
 import (
-	"bytes"
-	"encoding/hex"
 	"fmt"
 
 	"github.com/btcsuite/btcd/btcec/v2"
@@ -31,6 +29,7 @@ func (r Relayer) Close() {
 
 func NewRelayer() (*Relayer, error) {
 	// Set up the connection to the btcd RPC server.
+	// bitcoind -chain=regtest -rpcport=18332 -rpcuser=rpcuser -rpcpassword=rpcpass -fallbackfee=0.000001
 	connCfg := &rpcclient.ConnConfig{
 		Host:         "localhost:18332",
 		User:         "rpcuser",
@@ -64,15 +63,16 @@ func (r Relayer) commitTx(addr string) (*chainhash.Hash, error) {
 		return nil, fmt.Errorf("error sending to address: %v", err)
 	}
 
-	// Print the transaction hash.
 	return hash, nil
 }
 
-func (r Relayer) revealTx(embeddedData []byte, commitHash *chainhash.Hash) error {
+func (r Relayer) revealTx(embeddedData []byte, commitHash *chainhash.Hash) (*chainhash.Hash, error) {
 	rawCommitTx, err := r.client.GetRawTransaction(commitHash)
 	if err != nil {
-		return fmt.Errorf("error getting raw commit tx: %v", err)
+		return nil, fmt.Errorf("error getting raw commit tx: %v", err)
 	}
+
+	// TODO: use a better way to find our output
 	var commitIndex int
 	var commitOutput *wire.TxOut
 	for i, out := range rawCommitTx.MsgTx().TxOut {
@@ -85,21 +85,20 @@ func (r Relayer) revealTx(embeddedData []byte, commitHash *chainhash.Hash) error
 
 	privKey, err := btcutil.DecodeWIF(bobPrivateKey)
 	if err != nil {
-		return fmt.Errorf("error decoding bob private key: %v", err)
+		return nil, fmt.Errorf("error decoding bob private key: %v", err)
 	}
 
 	pubKey := privKey.PrivKey.PubKey()
 
 	internalPrivKey, err := btcutil.DecodeWIF(internalPrivateKey)
 	if err != nil {
-		return fmt.Errorf("error decoding internal private key: %v", err)
+		return nil, fmt.Errorf("error decoding internal private key: %v", err)
 	}
 
 	internalPubKey := internalPrivKey.PrivKey.PubKey()
 
-	// Our script will be a simple OP_CHECKSIG as the sole leaf of a
-	// tapscript tree. We'll also re-use the internal key as the key in the
-	// leaf.
+	// Our script will be a simple <embedded-data> OP_DROP OP_CHECKSIG as the
+	// sole leaf of a tapscript tree.
 	builder := txscript.NewScriptBuilder()
 	builder.AddData(embeddedData)
 	builder.AddOp(txscript.OP_DROP)
@@ -107,7 +106,7 @@ func (r Relayer) revealTx(embeddedData []byte, commitHash *chainhash.Hash) error
 	builder.AddOp(txscript.OP_CHECKSIG)
 	pkScript, err := builder.Script()
 	if err != nil {
-		return fmt.Errorf("error building script: %v", err)
+		return nil, fmt.Errorf("error building script: %v", err)
 	}
 
 	tapLeaf := txscript.NewBaseTapLeaf(pkScript)
@@ -123,7 +122,7 @@ func (r Relayer) revealTx(embeddedData []byte, commitHash *chainhash.Hash) error
 	)
 	p2trScript, err := payToTaprootScript(outputKey)
 	if err != nil {
-		return fmt.Errorf("error building p2tr script: %v", err)
+		return nil, fmt.Errorf("error building p2tr script: %v", err)
 	}
 
 	tx := wire.NewMsgTx(2)
@@ -151,27 +150,24 @@ func (r Relayer) revealTx(embeddedData []byte, commitHash *chainhash.Hash) error
 	)
 
 	if err != nil {
-		return fmt.Errorf("error signing tapscript: %v", err)
+		return nil, fmt.Errorf("error signing tapscript: %v", err)
 	}
 
 	// Now that we have the sig, we'll make a valid witness
 	// including the control block.
 	ctrlBlockBytes, err := ctrlBlock.ToBytes()
 	if err != nil {
-		return fmt.Errorf("error including control block: %v", err)
+		return nil, fmt.Errorf("error including control block: %v", err)
 	}
 	tx.TxIn[0].Witness = wire.TxWitness{
 		sig, pkScript, ctrlBlockBytes,
 	}
 
-	var buf bytes.Buffer
-	err = tx.Serialize(&buf)
+	hash, err := r.client.SendRawTransaction(tx, false)
 	if err != nil {
-		return err
+		return nil, fmt.Errorf("error sending reveal transaction: %v", err)
 	}
-
-	fmt.Println(hex.EncodeToString(buf.Bytes()))
-	return nil
+	return hash, nil
 }
 
 // payToTaprootScript creates a pk script for a pay-to-taproot output key.
@@ -245,9 +241,10 @@ func main() {
 		fmt.Println(err)
 		return
 	}
-	err = relayer.revealTx(embeddedData, hash)
+	hash, err = relayer.revealTx(embeddedData, hash)
 	if err != nil {
 		fmt.Println(err)
 		return
 	}
+	fmt.Printf("reveal tx hash: %s\n", hash)
 }
