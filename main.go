@@ -20,7 +20,6 @@ import (
 var (
 	bobPrivateKey      = "5JoQtsKQuH8hC9MyvfJAqo6qmKLm8ePYNucs7tPu2YxG12trzBt"
 	internalPrivateKey = "5JGgKfRy6vEcWBpLJV5FXUfMGNXzvdWzQHUM1rVLEUJfvZUSwvS"
-	revealPrivateKey   = "cP5ycVVC1ByiiJgHNdEedSfQ9h16cjCewywksKvQFVqCyzXbshzp"
 )
 
 type Relayer struct {
