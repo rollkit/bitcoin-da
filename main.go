@@ -1,6 +1,8 @@
 package main
 
 import (
+	"bytes"
+	"encoding/hex"
 	"fmt"
 
 	"github.com/btcsuite/btcd/btcec/v2"
@@ -112,11 +114,11 @@ func (r Relayer) revealTx(commitHash *chainhash.Hash) error {
 	tx.AddTxIn(&wire.TxIn{
 		PreviousOutPoint: wire.OutPoint{
 			Hash:  *rawCommitTx.Hash(),
-			Index: uint32(rawCommitTx.MsgTx().TxOut[0].Value),
+			Index: 0,
 		},
 	})
 	txOut := &wire.TxOut{
-		Value: 1e8, PkScript: p2trScript,
+		Value: 1e3, PkScript: p2trScript,
 	}
 	tx.AddTxOut(txOut)
 
@@ -139,7 +141,14 @@ func (r Relayer) revealTx(commitHash *chainhash.Hash) error {
 	tx.TxIn[0].Witness = wire.TxWitness{
 		sig, pkScript, ctrlBlockBytes,
 	}
-	spew.Dump(tx)
+
+	var buf bytes.Buffer
+	err = tx.Serialize(&buf)
+	if err != nil {
+		return err
+	}
+
+	spew.Dump(hex.EncodeToString(buf.Bytes()))
 	return nil
 }
 
