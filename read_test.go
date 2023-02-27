@@ -22,7 +22,7 @@ func ExampleRead() {
 		fmt.Println(err)
 		return
 	}
-	// fmt.Println(input, data[1:16])
+	// fmt.Println(expected, got[1:16])
 	fmt.Println("done")
 	// Output: writing...
 	// reading...
