@@ -25,8 +25,7 @@ Example:
 	func ExampleRead() {
 		// Example usage
 		fmt.Println("writing...")
-		input := []byte("rollkit-btc: gm")
-		hash, err := rollkitbtc.Write(input)
+		hash, err := rollkitbtc.Write([]byte("rollkit-btc: gm"))
 		if err != nil {
 			fmt.Println(err)
 			return
