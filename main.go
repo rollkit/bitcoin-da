@@ -4,19 +4,30 @@ import (
 	"fmt"
 	"log"
 
+	"github.com/btcsuite/btcd/btcec/v2"
 	"github.com/btcsuite/btcd/btcec/v2/schnorr"
 	"github.com/btcsuite/btcd/btcutil"
 	"github.com/btcsuite/btcd/chaincfg"
 	"github.com/btcsuite/btcd/rpcclient"
 	"github.com/btcsuite/btcd/txscript"
+	"github.com/btcsuite/btcd/wire"
+	"github.com/davecgh/go-spew/spew"
 )
 
 // Sample data and keys for testing.
 var (
 	bobPrivateKey      = "5JoQtsKQuH8hC9MyvfJAqo6qmKLm8ePYNucs7tPu2YxG12trzBt"
 	internalPrivateKey = "5JGgKfRy6vEcWBpLJV5FXUfMGNXzvdWzQHUM1rVLEUJfvZUSwvS"
-	walletPrivateKey   = "cP5ycVVC1ByiiJgHNdEedSfQ9h16cjCewywksKvQFVqCyzXbshzp"
+	revealPrivateKey   = "cP5ycVVC1ByiiJgHNdEedSfQ9h16cjCewywksKvQFVqCyzXbshzp"
 )
+
+// payToTaprootScript creates a pk script for a pay-to-taproot output key.
+func payToTaprootScript(taprootKey *btcec.PublicKey) ([]byte, error) {
+	return txscript.NewScriptBuilder().
+		AddOp(txscript.OP_1).
+		AddData(schnorr.SerializePubKey(taprootKey)).
+		Script()
+}
 
 func createTaprootAddress(embeddedData []byte) (string, error) {
 	// Sign the transaction with the sample keypair.
@@ -110,8 +121,73 @@ func commitTx(addr string) error {
 	return nil
 }
 
-func revealTx() {
-	// TODO
+func revealTx(prev wire.OutPoint) error {
+	revealPrivKey, err := btcutil.DecodeWIF(revealPrivateKey)
+	if err != nil {
+		return fmt.Errorf("error decoding reveal private key: %v", err)
+	}
+
+	revealPubKey := revealPrivKey.PrivKey.PubKey()
+
+	// Our script will be a simple OP_CHECKSIG as the sole leaf of a
+	// tapscript tree. We'll also re-use the internal key as the key in the
+	// leaf.
+	builder := txscript.NewScriptBuilder()
+	builder.AddData(schnorr.SerializePubKey(revealPubKey))
+	builder.AddOp(txscript.OP_CHECKSIG)
+	pkScript, err := builder.Script()
+	if err != nil {
+		return fmt.Errorf("error building script: %v", err)
+	}
+
+	tapLeaf := txscript.NewBaseTapLeaf(pkScript)
+	tapScriptTree := txscript.AssembleTaprootScriptTree(tapLeaf)
+
+	ctrlBlock := tapScriptTree.LeafMerkleProofs[0].ToControlBlock(
+		revealPubKey,
+	)
+
+	tapScriptRootHash := tapScriptTree.RootNode.TapHash()
+	outputKey := txscript.ComputeTaprootOutputKey(
+		revealPubKey, tapScriptRootHash[:],
+	)
+	p2trScript, err := payToTaprootScript(outputKey)
+	if err != nil {
+		return fmt.Errorf("error building p2tr script: %v", err)
+	}
+
+	tx := wire.NewMsgTx(2)
+	tx.AddTxIn(&wire.TxIn{
+		PreviousOutPoint: wire.OutPoint{
+			Hash:  prev.Hash,
+			Index: prev.Index,
+		},
+	})
+	txOut := &wire.TxOut{
+		Value: 1e8, PkScript: p2trScript,
+	}
+	tx.AddTxOut(txOut)
+
+	sig, err := txscript.RawTxInTapscriptSignature(
+		tx, sigHashes, 0, txOut.Value,
+		txOut.PkScript, tapLeaf, txscript.SigHashDefault,
+		revealPrivKey,
+	)
+	if err != nil {
+		return fmt.Errorf("error signing tapscript: %v", err)
+	}
+
+	// Now that we have the sig, we'll make a valid witness
+	// including the control block.
+	ctrlBlockBytes, err := ctrlBlock.ToBytes()
+	if err != nil {
+		return fmt.Errorf("error including control block: %v", err)
+	}
+	tx.TxIn[0].Witness = wire.TxWitness{
+		sig, pkScript, ctrlBlockBytes,
+	}
+	spew.Dump(tx)
+	return nil
 }
 
 func main() {
