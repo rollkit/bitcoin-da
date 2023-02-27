@@ -241,6 +241,7 @@ func main() {
 		fmt.Println(err)
 		return
 	}
+	fmt.Printf("commit tx hash: %s\n", hash)
 	hash, err = relayer.revealTx(embeddedData, hash)
 	if err != nil {
 		fmt.Println(err)
