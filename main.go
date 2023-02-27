@@ -68,7 +68,7 @@ func (r Relayer) commitTx(addr string) (*chainhash.Hash, error) {
 	return hash, nil
 }
 
-func (r Relayer) revealTx(commitHash *chainhash.Hash) error {
+func (r Relayer) revealTx(embeddedData []byte, commitHash *chainhash.Hash) error {
 	rawCommitTx, err := r.client.GetRawTransaction(commitHash)
 	if err != nil {
 		return fmt.Errorf("error getting raw commit tx: %v", err)
@@ -101,6 +101,8 @@ func (r Relayer) revealTx(commitHash *chainhash.Hash) error {
 	// tapscript tree. We'll also re-use the internal key as the key in the
 	// leaf.
 	builder := txscript.NewScriptBuilder()
+	builder.AddData(embeddedData)
+	builder.AddOp(txscript.OP_DROP)
 	builder.AddData(schnorr.SerializePubKey(pubKey))
 	builder.AddOp(txscript.OP_CHECKSIG)
 	pkScript, err := builder.Script()
@@ -190,6 +192,8 @@ func createTaprootAddress(embeddedData []byte) (string, error) {
 
 	// Step 1: Construct the Taproot script with one leaf:
 	builder := txscript.NewScriptBuilder()
+	builder.AddData(embeddedData)
+	builder.AddOp(txscript.OP_DROP)
 	builder.AddData(schnorr.SerializePubKey(pubKey))
 	builder.AddOp(txscript.OP_CHECKSIG)
 	pkScript, err := builder.Script()
@@ -241,7 +245,7 @@ func main() {
 		fmt.Println(err)
 		return
 	}
-	err = relayer.revealTx(hash)
+	err = relayer.revealTx(embeddedData, hash)
 	if err != nil {
 		fmt.Println(err)
 		return
