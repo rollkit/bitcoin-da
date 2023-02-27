@@ -186,7 +186,7 @@ func createTaprootAddress(embeddedData []byte) (string, error) {
 
 	pubKey := privKey.PrivKey.PubKey()
 
-	// Step 1: Construct the Taproot script with one leaf:
+	// Step 1: Construct the Taproot script with one leaf.
 	builder := txscript.NewScriptBuilder()
 	builder.AddData(embeddedData)
 	builder.AddOp(txscript.OP_DROP)
@@ -207,6 +207,7 @@ func createTaprootAddress(embeddedData []byte) (string, error) {
 
 	internalPubKey := internalPrivKey.PrivKey.PubKey()
 
+	// Step 2: Generate the Taproot tree.
 	tapScriptRootHash := tapScriptTree.RootNode.TapHash()
 	outputKey := txscript.ComputeTaprootOutputKey(
 		internalPubKey, tapScriptRootHash[:],
