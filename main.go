@@ -160,33 +160,17 @@ func createTaprootAddress(embeddedData []byte) (string, error) {
 
 	pubKey := privKey.PrivKey.PubKey()
 
-	// Step 1: Construct the Taproot script with two leafs:
-	// left: empty
-	left, err := txscript.NewScriptBuilder().Script()
-	if err != nil {
-		return "", fmt.Errorf("error constructing Taproot script: %v", err)
-	}
-
-	// right: "OP_0 OP_IF <embedded data> OP_ENDIF".
+	// Step 1: Construct the Taproot script with one leaf:
 	builder := txscript.NewScriptBuilder()
-	builder.AddOp(txscript.OP_0)
-	builder.AddOp(txscript.OP_IF)
-	builder.AddData(embeddedData)
-	builder.AddOp(txscript.OP_ENDIF)
-	builder.AddData(pubKey.SerializeCompressed()[1:])
+	builder.AddData(schnorr.SerializePubKey(pubKey))
 	builder.AddOp(txscript.OP_CHECKSIG)
-	right, err := builder.Script()
+	pkScript, err := builder.Script()
 	if err != nil {
-		return "", fmt.Errorf("error constructing Taproot script: %v", err)
+		return "", fmt.Errorf("error building script: %v", err)
 	}
 
-	// Step 2: Construct the Taproot merkletree.
-	tapBranch := txscript.NewTapBranch(
-		txscript.NewTapLeaf(txscript.BaseLeafVersion, left),
-		txscript.NewTapLeaf(txscript.BaseLeafVersion, right),
-	)
-
-	hash := tapBranch.TapHash()
+	tapLeaf := txscript.NewBaseTapLeaf(pkScript)
+	tapScriptTree := txscript.AssembleTaprootScriptTree(tapLeaf)
 
 	internalPrivKey, err := btcutil.DecodeWIF(internalPrivateKey)
 	if err != nil {
@@ -195,11 +179,14 @@ func createTaprootAddress(embeddedData []byte) (string, error) {
 
 	internalPubKey := internalPrivKey.PrivKey.PubKey()
 
-	tweakedPubkey := txscript.ComputeTaprootOutputKey(internalPubKey, hash.CloneBytes())
+	tapScriptRootHash := tapScriptTree.RootNode.TapHash()
+	outputKey := txscript.ComputeTaprootOutputKey(
+		internalPubKey, tapScriptRootHash[:],
+	)
 
 	// Step 3: Generate the Bech32 address.
 	address, err := btcutil.NewAddressTaproot(
-		schnorr.SerializePubKey(tweakedPubkey), &chaincfg.RegressionNetParams)
+		schnorr.SerializePubKey(outputKey), &chaincfg.RegressionNetParams)
 	if err != nil {
 		return "", fmt.Errorf("error encoding Taproot address: %v", err)
 	}
@@ -213,10 +200,12 @@ func main() {
 	address, err := createTaprootAddress(embeddedData)
 	if err != nil {
 		fmt.Println(err)
+		return
 	}
 	relayer, err := NewRelayer()
 	if err != nil {
 		fmt.Println(err)
+		return
 	}
 	hash, err := relayer.commitTx(address)
 	if err != nil {
