@@ -228,7 +228,7 @@ func createTaprootAddress(embeddedData []byte) (string, error) {
 
 func main() {
 	// Example usage
-	embeddedData := []byte("00")
+	embeddedData := []byte("rollkit-btc: gm")
 	address, err := createTaprootAddress(embeddedData)
 	if err != nil {
 		fmt.Println(err)
