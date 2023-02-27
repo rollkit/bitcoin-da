@@ -1,4 +1,4 @@
-package main
+package rollkitbtc
 
 import (
 	"fmt"
@@ -14,21 +14,29 @@ import (
 )
 
 // Sample data and keys for testing.
+// bob key pair is used for signing reveal tx
+// internal key pair is used for tweaking
 var (
 	bobPrivateKey      = "5JoQtsKQuH8hC9MyvfJAqo6qmKLm8ePYNucs7tPu2YxG12trzBt"
 	internalPrivateKey = "5JGgKfRy6vEcWBpLJV5FXUfMGNXzvdWzQHUM1rVLEUJfvZUSwvS"
 )
 
+// Relayer is a bitcoin client wrapper which provides reader and writer methods
+// to write binary blobs to the blockchain.
 type Relayer struct {
 	client *rpcclient.Client
 }
 
+// Close shuts down the client.
 func (r Relayer) Close() {
 	r.client.Shutdown()
 }
 
+// NewRelayer returns a new relayer. It can error if there's an RPC connection
+// error with the connection config.
 func NewRelayer() (*Relayer, error) {
 	// Set up the connection to the btcd RPC server.
+	// NOTE: for testing bitcoind can be used in regtest with the following params -
 	// bitcoind -chain=regtest -rpcport=18332 -rpcuser=rpcuser -rpcpassword=rpcpass -fallbackfee=0.000001
 	connCfg := &rpcclient.ConnConfig{
 		Host:         "localhost:18332",
@@ -46,6 +54,10 @@ func NewRelayer() (*Relayer, error) {
 	}, nil
 }
 
+// commitTx commits an output to the given taproot address, such that the
+// output is only spendable by posting the embedded data on chain, as part of
+// the script satisfying the tapscript spend path that commits to the data. It
+// returns the hash of the commit transaction and error, if any.
 func (r Relayer) commitTx(addr string) (*chainhash.Hash, error) {
 	// Create a transaction that sends 0.001 BTC to the given address.
 	address, err := btcutil.DecodeAddress(addr, &chaincfg.RegressionNetParams)
@@ -66,6 +78,9 @@ func (r Relayer) commitTx(addr string) (*chainhash.Hash, error) {
 	return hash, nil
 }
 
+// revealTx spends the output from the commit transaction and as part of the
+// script satisfying the tapscript spend path, posts the embedded data on
+// chain. It returns the hash of the reveal transaction and error, if any.
 func (r Relayer) revealTx(embeddedData []byte, commitHash *chainhash.Hash) (*chainhash.Hash, error) {
 	rawCommitTx, err := r.client.GetRawTransaction(commitHash)
 	if err != nil {
@@ -178,6 +193,9 @@ func payToTaprootScript(taprootKey *btcec.PublicKey) ([]byte, error) {
 		Script()
 }
 
+// createTaprootAddress returns an address committing to a Taproot script with
+// a single leaf containing the spend path with the script:
+// <embedded data> OP_DROP <pubkey> OP_CHECKSIG
 func createTaprootAddress(embeddedData []byte) (string, error) {
 	privKey, err := btcutil.DecodeWIF(bobPrivateKey)
 	if err != nil {
@@ -213,7 +231,7 @@ func createTaprootAddress(embeddedData []byte) (string, error) {
 		internalPubKey, tapScriptRootHash[:],
 	)
 
-	// Step 3: Generate the Bech32 address.
+	// Step 3: Generate the Bech32m address.
 	address, err := btcutil.NewAddressTaproot(
 		schnorr.SerializePubKey(outputKey), &chaincfg.RegressionNetParams)
 	if err != nil {
@@ -223,30 +241,23 @@ func createTaprootAddress(embeddedData []byte) (string, error) {
 	return address.String(), nil
 }
 
-func main() {
-	// Example usage
-	embeddedData := []byte("rollkit-btc: gm")
-	address, err := createTaprootAddress(embeddedData)
+func Write(data []byte) (*chainhash.Hash, error) {
+	address, err := createTaprootAddress(data)
 	if err != nil {
-		fmt.Println(err)
-		return
+		return nil, err
 	}
 	relayer, err := NewRelayer()
 	if err != nil {
-		fmt.Println(err)
-		return
+		return nil, err
 	}
 	defer relayer.Close()
 	hash, err := relayer.commitTx(address)
 	if err != nil {
-		fmt.Println(err)
-		return
+		return nil, err
 	}
-	fmt.Printf("commit tx hash: %s\n", hash)
-	hash, err = relayer.revealTx(embeddedData, hash)
+	hash, err = relayer.revealTx(data, hash)
 	if err != nil {
-		fmt.Println(err)
-		return
+		return nil, err
 	}
-	fmt.Printf("reveal tx hash: %s\n", hash)
+	return hash, nil
 }
