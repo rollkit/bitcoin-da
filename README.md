@@ -7,25 +7,42 @@ This package provides a reader / writer interface to bitcoin.
 Example:
 ========
 
-	// ExampleRead tests that reading data from the blockchain works as expected.
-	func ExampleRead() {
+	// ExampleRelayer_Read tests that reading data from the blockchain works as
+	// expected.
+	func ExampleRelayer_Read() {
 		// Example usage
-		hash, err := rollkitbtc.Write([]byte("rollkit-btc: gm"))
+		relayer, err := rollkitbtc.NewRelayer(rollkitbtc.Config{
+			Host:         "localhost:18332",
+			User:         "rpcuser",
+			Pass:         "rpcpass",
+			HTTPPostMode: true,
+			DisableTLS:   true,
+		})
 		if err != nil {
 			fmt.Println(err)
 			return
 		}
-		bytes, err := rollkitbtc.Read(hash)
+		_, err = relayer.Write([]byte("rollkit-btc: gm"))
 		if err != nil {
 			fmt.Println(err)
 			return
 		}
-		got, err := hex.DecodeString(fmt.Sprintf("%x", bytes))
+		// TODO: either mock or generate block
+		// We're assuming the prev tx was mined at height 146
+		height := uint64(146)
+		blobs, err := relayer.Read(height)
 		if err != nil {
 			fmt.Println(err)
 			return
 		}
-		fmt.Println(string(got))
+		for _, blob := range blobs {
+			got, err := hex.DecodeString(fmt.Sprintf("%x", blob))
+			if err != nil {
+				fmt.Println(err)
+				return
+			}
+			fmt.Println(string(got))
+		}
 		// Output: rollkit-btc: gm
 	}
 
@@ -46,12 +63,12 @@ Idle for a while till coinbase coins mature.
 
 	go test -v
 
-	=== RUN   ExampleRead
-	--- PASS: ExampleRead (0.31s)
-	=== RUN   ExampleWrite
-	--- PASS: ExampleWrite (0.28s)
+	=== RUN   ExampleRelayer_Write
+	--- PASS: ExampleRelayer_Write (0.07s)
+	=== RUN   ExampleRelayer_Read
+	--- PASS: ExampleRelayer_Read (0.02s)
 	PASS
-	ok      github.com/rollkit/rollkit-btc  0.706s
+	ok      github.com/rollkit/rollkit-btc  0.240s
 
 
 Writer:
