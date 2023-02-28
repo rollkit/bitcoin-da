@@ -71,7 +71,7 @@ func Write(data []byte) (*chainhash.Hash, error) {
 	if err != nil {
 		return nil, err
 	}
-	relayer, err := NewRelayer()
+	relayer, err := newRelayer()
 	if err != nil {
 		return nil, err
 	}

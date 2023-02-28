@@ -21,14 +21,14 @@ func payToTaprootScript(taprootKey *btcec.PublicKey) ([]byte, error) {
 		Script()
 }
 
-// Relayer is a bitcoin client wrapper which provides reader and writer methods
+// relayer is a bitcoin client wrapper which provides reader and writer methods
 // to write binary blobs to the blockchain.
-type Relayer struct {
+type relayer struct {
 	client *rpcclient.Client
 }
 
 // Close shuts down the client.
-func (r Relayer) Close() {
+func (r relayer) Close() {
 	r.client.Shutdown()
 }
 
@@ -36,7 +36,7 @@ func (r Relayer) Close() {
 // output is only spendable by posting the embedded data on chain, as part of
 // the script satisfying the tapscript spend path that commits to the data. It
 // returns the hash of the commit transaction and error, if any.
-func (r Relayer) commitTx(addr string) (*chainhash.Hash, error) {
+func (r relayer) commitTx(addr string) (*chainhash.Hash, error) {
 	// Create a transaction that sends 0.001 BTC to the given address.
 	address, err := btcutil.DecodeAddress(addr, &chaincfg.RegressionNetParams)
 	if err != nil {
@@ -59,7 +59,7 @@ func (r Relayer) commitTx(addr string) (*chainhash.Hash, error) {
 // revealTx spends the output from the commit transaction and as part of the
 // script satisfying the tapscript spend path, posts the embedded data on
 // chain. It returns the hash of the reveal transaction and error, if any.
-func (r Relayer) revealTx(embeddedData []byte, commitHash *chainhash.Hash) (*chainhash.Hash, error) {
+func (r relayer) revealTx(embeddedData []byte, commitHash *chainhash.Hash) (*chainhash.Hash, error) {
 	rawCommitTx, err := r.client.GetRawTransaction(commitHash)
 	if err != nil {
 		return nil, fmt.Errorf("error getting raw commit tx: %v", err)
@@ -163,9 +163,9 @@ func (r Relayer) revealTx(embeddedData []byte, commitHash *chainhash.Hash) (*cha
 	return hash, nil
 }
 
-// NewRelayer returns a new relayer. It can error if there's an RPC connection
+// newRelayer returns a new relayer. It can error if there's an RPC connection
 // error with the connection config.
-func NewRelayer() (*Relayer, error) {
+func newRelayer() (*relayer, error) {
 	// Set up the connection to the btcd RPC server.
 	// NOTE: for testing bitcoind can be used in regtest with the following params -
 	// bitcoind -chain=regtest -rpcport=18332 -rpcuser=rpcuser -rpcpassword=rpcpass -fallbackfee=0.000001
@@ -180,8 +180,7 @@ func NewRelayer() (*Relayer, error) {
 	if err != nil {
 		return nil, fmt.Errorf("error creating btcd RPC client: %v", err)
 	}
-	return &Relayer{
+	return &relayer{
 		client: client,
 	}, nil
 }
-

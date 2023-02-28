@@ -5,7 +5,7 @@ import (
 )
 
 func Read(hash *chainhash.Hash) ([]byte, error) {
-	relayer, err := NewRelayer()
+	relayer, err := newRelayer()
 	if err != nil {
 		return nil, err
 	}
