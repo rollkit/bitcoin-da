@@ -14,5 +14,7 @@ func Read(hash *chainhash.Hash) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	return tx.MsgTx().TxIn[0].Witness[1], nil
+	witness := tx.MsgTx().TxIn[0].Witness[1]
+	size := int(witness[0])
+	return witness[1 : size+1], nil
 }
