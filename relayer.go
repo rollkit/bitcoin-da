@@ -27,8 +27,8 @@ type relayer struct {
 	client *rpcclient.Client
 }
 
-// Close shuts down the client.
-func (r relayer) Close() {
+// close shuts down the client.
+func (r relayer) close() {
 	r.client.Shutdown()
 }
 

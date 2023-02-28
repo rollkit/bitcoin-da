@@ -75,7 +75,7 @@ func Write(data []byte) (*chainhash.Hash, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer relayer.Close()
+	defer relayer.close()
 	hash, err := relayer.commitTx(address)
 	if err != nil {
 		return nil, err

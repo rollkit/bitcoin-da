@@ -9,7 +9,7 @@ func Read(hash *chainhash.Hash) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer relayer.Close()
+	defer relayer.close()
 	tx, err := relayer.client.GetRawTransaction(hash)
 	if err != nil {
 		return nil, err
