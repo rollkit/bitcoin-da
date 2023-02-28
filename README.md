@@ -7,40 +7,26 @@ This package provides a reader / writer interface to bitcoin.
 Example:
 ========
 
-	// ExampleWrite tests that writing data to the blockchain works as expected.
-	func ExampleWrite() {
-		// Example usage
-		fmt.Println("writing...")
-		_, err := rollkitbtc.Write([]byte("rollkit-btc: gm"))
-		if err != nil {
-			fmt.Println(err)
-			return
-		}
-		fmt.Println("done")
-		// Output: writing...
-		// done
-	}
-
 	// ExampleRead tests that reading data from the blockchain works as expected.
 	func ExampleRead() {
 		// Example usage
-		fmt.Println("writing...")
 		hash, err := rollkitbtc.Write([]byte("rollkit-btc: gm"))
 		if err != nil {
 			fmt.Println(err)
 			return
 		}
-		fmt.Println("reading...")
-		_, err = rollkitbtc.Read(hash)
+		bytes, err := rollkitbtc.Read(hash)
 		if err != nil {
 			fmt.Println(err)
 			return
 		}
-		// fmt.Println(expected, got[1:16])
-		fmt.Println("done")
-		// Output: writing...
-		// reading...
-		// done
+		got, err := hex.DecodeString(fmt.Sprintf("%x", bytes))
+		if err != nil {
+			fmt.Println(err)
+			return
+		}
+		fmt.Println(string(got))
+		// Output: rollkit-btc: gm
 	}
 
 Tests:
