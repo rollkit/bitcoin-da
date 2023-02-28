@@ -43,6 +43,28 @@ Example:
 		// done
 	}
 
+Tests:
+======
+
+Running the tests requires a local regtest node.
+
+	bitcoind -chain=regtest -rpcport=18332 -rpcuser=rpcuser -rpcpassword=rpcpass -fallbackfee=0.000001
+
+	bitcoin-cli -regtest -rpcport=18332 -rpcuser=rpcuser -rpcpassword=rpcpass createwallet w1
+
+	bitcoin-cli -regtest -rpcport=18332 -rpcuser=rpcuser -rpcpassword=rpcpass generatetoaddress 101 `bcli getnewaddress`
+
+Idle for a while till coinbase coins mature.
+
+	go test -v
+
+	=== RUN   ExampleRead
+	--- PASS: ExampleRead (0.31s)
+	=== RUN   ExampleWrite
+	--- PASS: ExampleWrite (0.28s)
+	PASS
+	ok      github.com/rollkit/rollkit-btc  0.706s
+
 
 Writer:
 =======
