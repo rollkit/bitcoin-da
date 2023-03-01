@@ -96,3 +96,8 @@ The address of the reveal transaction is implicity used as a namespace.
 
 Clients may call listunspent on the reveal transaction address to get a list of
 transactions and read the embedded data from the first witness input.
+
+Spec:
+=====
+
+For more details, [read the spec](./spec.md)
