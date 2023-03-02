@@ -25,6 +25,24 @@ var (
 	internalPrivateKey = "5JGgKfRy6vEcWBpLJV5FXUfMGNXzvdWzQHUM1rVLEUJfvZUSwvS"
 )
 
+// chunkSlice splits input slice into max chunkSize length slices
+func chunkSlice(slice []byte, chunkSize int) [][]byte {
+	var chunks [][]byte
+	for i := 0; i < len(slice); i += chunkSize {
+		end := i + chunkSize
+
+		// necessary check to avoid slicing beyond
+		// slice capacity
+		if end > len(slice) {
+			end = len(slice)
+		}
+
+		chunks = append(chunks, slice[i:end])
+	}
+
+	return chunks
+}
+
 // createTaprootAddress returns an address committing to a Taproot script with
 // a single leaf containing the spend path with the script:
 // <embedded data> OP_DROP <pubkey> OP_CHECKSIG
@@ -38,8 +56,13 @@ func createTaprootAddress(embeddedData []byte) (string, error) {
 
 	// Step 1: Construct the Taproot script with one leaf.
 	builder := txscript.NewScriptBuilder()
-	builder.AddData(embeddedData)
-	builder.AddOp(txscript.OP_DROP)
+	builder.AddOp(txscript.OP_0)
+	builder.AddOp(txscript.OP_IF)
+	chunks := chunkSlice(embeddedData, 520)
+	for _, chunk := range chunks {
+		builder.AddData(chunk)
+	}
+	builder.AddOp(txscript.OP_ENDIF)
 	builder.AddData(schnorr.SerializePubKey(pubKey))
 	builder.AddOp(txscript.OP_CHECKSIG)
 	pkScript, err := builder.Script()
@@ -153,8 +176,13 @@ func (r Relayer) revealTx(embeddedData []byte, commitHash *chainhash.Hash) (*cha
 	// Our script will be a simple <embedded-data> OP_DROP OP_CHECKSIG as the
 	// sole leaf of a tapscript tree.
 	builder := txscript.NewScriptBuilder()
-	builder.AddData(embeddedData)
-	builder.AddOp(txscript.OP_DROP)
+	builder.AddOp(txscript.OP_0)
+	builder.AddOp(txscript.OP_IF)
+	chunks := chunkSlice(embeddedData, 520)
+	for _, chunk := range chunks {
+		builder.AddData(chunk)
+	}
+	builder.AddOp(txscript.OP_ENDIF)
 	builder.AddData(schnorr.SerializePubKey(pubKey))
 	builder.AddOp(txscript.OP_CHECKSIG)
 	pkScript, err := builder.Script()
@@ -266,10 +294,22 @@ func (r Relayer) Read(height uint64) ([][]byte, error) {
 	var data [][]byte
 	for _, tx := range block.Transactions {
 		if len(tx.TxIn[0].Witness) > 1 {
+			// FIXME: UGLY HACK
+			// ideally we should template match the script and extract
+			// see: txscript.ExtractAtomicSwapDataPushes
 			witness := tx.TxIn[0].Witness[1]
-			size := uint(witness[0])
-			if bytes.HasPrefix(witness[1:], PROTOCOL_ID) {
-				data = append(data, witness[1:size+1])
+			start := bytes.Index(witness, PROTOCOL_ID)
+			// script template:
+			//                                           < ---------          35 bytes        --------->
+			// OP_FALSE OP_IF + "roll" marker +  <data> + canonical int + 32 bytes pubkey + OP_CHECKSIG
+			//                   ^                      ^
+			// start ------------                       ^
+			// end -------------------------------------
+			if start > 0 && len(witness) > start+35 {
+				end := len(witness) - 35
+				if end > start {
+					data = append(data, witness[start:end])
+				}
 			}
 		}
 	}
