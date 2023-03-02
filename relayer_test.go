@@ -1,17 +1,17 @@
-package rollkitbtc_test
+package bitcoinda_test
 
 import (
 	"encoding/hex"
 	"fmt"
 
-	rollkitbtc "github.com/rollkit/rollkit-btc"
+	bitcoinda "github.com/rollkit/bitcoin-da"
 )
 
 // ExampleRelayer_Write tests that writing data to the blockchain works as
 // expected.
 func ExampleRelayer_Write() {
 	// Example usage
-	relayer, err := rollkitbtc.NewRelayer(rollkitbtc.Config{
+	relayer, err := bitcoinda.NewRelayer(bitcoinda.Config{
 		Host:         "localhost:18332",
 		User:         "rpcuser",
 		Pass:         "rpcpass",
@@ -37,7 +37,7 @@ func ExampleRelayer_Write() {
 // expected.
 func ExampleRelayer_Read() {
 	// Example usage
-	relayer, err := rollkitbtc.NewRelayer(rollkitbtc.Config{
+	relayer, err := bitcoinda.NewRelayer(bitcoinda.Config{
 		Host:         "localhost:18332",
 		User:         "rpcuser",
 		Pass:         "rpcpass",

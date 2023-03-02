@@ -1,4 +1,4 @@
-module github.com/rollkit/rollkit-btc
+module github.com/rollkit/bitcoin-da
 
 go 1.19
 
