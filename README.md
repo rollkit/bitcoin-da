@@ -11,7 +11,7 @@ Example:
 	// expected.
 	func ExampleRelayer_Read() {
 		// Example usage
-		relayer, err := rollkitbtc.NewRelayer(rollkitbtc.Config{
+		relayer, err := bitcoinda.NewRelayer(bitcoinda.Config{
 			Host:         "localhost:18332",
 			User:         "rpcuser",
 			Pass:         "rpcpass",
@@ -61,15 +61,12 @@ Running the tests requires a local regtest node.
 
 Idle for a while till coinbase coins mature.
 
-	go test -v
-
 	=== RUN   ExampleRelayer_Write
-	--- PASS: ExampleRelayer_Write (0.07s)
+	--- PASS: ExampleRelayer_Write (0.13s)
 	=== RUN   ExampleRelayer_Read
-	--- PASS: ExampleRelayer_Read (0.02s)
+	--- PASS: ExampleRelayer_Read (0.10s)
 	PASS
-	ok      github.com/rollkit/rollkit-btc  0.240s
-
+	ok      github.com/rollkit/bitcoin-da   0.375s
 
 Writer:
 =======
