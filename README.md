@@ -1,5 +1,5 @@
-rollkit-btc:
-============
+bitcoin-da:
+===========
 
 
 This package provides a reader / writer interface to bitcoin.

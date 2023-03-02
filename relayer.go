@@ -1,4 +1,4 @@
-package rollkitbtc
+package bitcoinda
 
 import (
 	"bytes"
