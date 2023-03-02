@@ -253,8 +253,8 @@ func NewRelayer(config Config) (*Relayer, error) {
 	}, nil
 }
 
-func (r Relayer) Read(height uint64) ([][]byte, error) {
-	hash, err := r.client.GetBlockHash(int64(height))
+func (r Relayer) Read(height int64) ([][]byte, error) {
+	hash, err := r.client.GetBlockHash(height)
 	if err != nil {
 		return nil, err
 	}
@@ -274,6 +274,22 @@ func (r Relayer) Read(height uint64) ([][]byte, error) {
 		}
 	}
 	return data, nil
+}
+
+func (r Relayer) Check(hash *chainhash.Hash) (int64, error) {
+	tx, err := r.client.GetRawTransactionVerbose(hash)
+	if err != nil {
+		return 0, err
+	}
+	hash, err = chainhash.NewHashFromStr(tx.BlockHash)
+	if err != nil {
+		return 0, err
+	}
+	block, err := r.client.GetBlockVerbose(hash)
+	if err != nil {
+		return 0, err
+	}
+	return block.Height, nil
 }
 
 func (r Relayer) Write(data []byte) (*chainhash.Hash, error) {

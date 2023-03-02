@@ -49,15 +49,21 @@ Example:
 Tests:
 ======
 
-Running the tests requires a local regtest node.
+Running the tests requires a local regtest node:
 
 	bitcoind -chain=regtest -rpcport=18332 -rpcuser=rpcuser -rpcpassword=rpcpass -fallbackfee=0.000001 -txindex=1
+
+Setup wallet, generate coins:
 
 	bitcoin-cli -regtest -rpcport=18332 -rpcuser=rpcuser -rpcpassword=rpcpass createwallet w1
 
 	export COINBASE=$(bitcoin-cli -regtest -rpcport=18332 -rpcuser=rpcuser -rpcpassword=rpcpass getnewaddress)
 
 	bitcoin-cli -regtest -rpcport=18332 -rpcuser=rpcuser -rpcpassword=rpcpass generatetoaddress 101 $COINBASE
+
+Run a background miner:
+
+	watch -n 5 bitcoin-cli -regtest -rpcport=18332 -rpcuser=rpcuser -rpcpassword=rpcpass generatetoaddress 1 $COINBASE
 
 Idle for a while till coinbase coins mature.
 
