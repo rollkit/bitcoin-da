@@ -300,6 +300,14 @@ func (r Relayer) ReadTransaction(hash *chainhash.Hash) ([]byte, error) {
 	return nil, nil
 }
 
+func (r Relayer) LatestHeight() (int64, error) {
+	latest, err := r.client.GetBlockCount()
+	if err != nil {
+		return -1, err
+	}
+	return latest, nil
+}
+
 func (r Relayer) Read(height uint64) ([][]byte, error) {
 	hash, err := r.client.GetBlockHash(int64(height))
 	if err != nil {
