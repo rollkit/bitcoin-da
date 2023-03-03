@@ -10,5 +10,5 @@ while :
 do
         echo "Generate a new block `date '+%d/%m/%Y %H:%M:%S'`"
         bitcoin-core.cli -regtest -rpcport=18332 -rpcuser=rpcuser -rpcpassword=rpcpass generatetoaddress 1 $address
-        sleep 5
+        sleep 1
 done
