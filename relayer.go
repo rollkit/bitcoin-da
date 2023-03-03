@@ -281,6 +281,33 @@ func NewRelayer(config Config) (*Relayer, error) {
 	}, nil
 }
 
+func (r Relayer) ReadTransaction(hash *chainhash.Hash) ([]byte, error) {
+	tx, err := r.client.GetRawTransaction(hash)
+	if err != nil {
+		return nil, err
+	}
+	if len(tx.MsgTx().TxIn[0].Witness) > 1 {
+		// FIXME: UGLY HACK
+		// ideally we should template match the script and extract
+		// see: txscript.ExtractAtomicSwapDataPushes
+		witness := tx.MsgTx().TxIn[0].Witness[1]
+		start := bytes.Index(witness, PROTOCOL_ID)
+		// script template:
+		//                                           < ---------          35 bytes        --------->
+		// OP_FALSE OP_IF + "roll" marker +  <data> + canonical int + 32 bytes pubkey + OP_CHECKSIG
+		//                   ^                      ^
+		// start ------------                       ^
+		// end -------------------------------------
+		if start > 0 && len(witness) > start+35 {
+			end := len(witness) - 35
+			if end > start {
+				return witness[start+4 : end], nil
+			}
+		}
+	}
+	return nil, nil
+}
+
 func (r Relayer) Read(height uint64) ([][]byte, error) {
 	hash, err := r.client.GetBlockHash(int64(height))
 	if err != nil {
