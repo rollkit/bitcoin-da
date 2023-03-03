@@ -308,7 +308,7 @@ func (r Relayer) Read(height uint64) ([][]byte, error) {
 			if start > 0 && len(witness) > start+35 {
 				end := len(witness) - 35
 				if end > start {
-					data = append(data, witness[start:end])
+					data = append(data, witness[start+4:end])
 				}
 			}
 		}
@@ -317,6 +317,7 @@ func (r Relayer) Read(height uint64) ([][]byte, error) {
 }
 
 func (r Relayer) Write(data []byte) (*chainhash.Hash, error) {
+	data = append(PROTOCOL_ID, data...)
 	address, err := createTaprootAddress(data)
 	if err != nil {
 		return nil, err
