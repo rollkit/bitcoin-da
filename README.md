@@ -73,8 +73,11 @@ Writer:
 
 A commit transaction containing a taproot with one leaf script
 
-    <embedded data>
-    OP_DROP
+    OP_FALSE
+    OP_IF
+      "roll" marker
+      <embedded data>
+    OP_ENDIF
     <pubkey>
     OP_CHECKSIG
 
