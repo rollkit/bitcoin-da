@@ -287,22 +287,14 @@ func (r Relayer) ReadTransaction(hash *chainhash.Hash) ([]byte, error) {
 		return nil, err
 	}
 	if len(tx.MsgTx().TxIn[0].Witness) > 1 {
-		// FIXME: UGLY HACK
-		// ideally we should template match the script and extract
-		// see: txscript.ExtractAtomicSwapDataPushes
 		witness := tx.MsgTx().TxIn[0].Witness[1]
-		start := bytes.Index(witness, PROTOCOL_ID)
-		// script template:
-		//                                           < ---------          35 bytes        --------->
-		// OP_FALSE OP_IF + "roll" marker +  <data> + canonical int + 32 bytes pubkey + OP_CHECKSIG
-		//                   ^                      ^
-		// start ------------                       ^
-		// end -------------------------------------
-		if start > 0 && len(witness) > start+35 {
-			end := len(witness) - 35
-			if end > start {
-				return witness[start+4 : end], nil
-			}
+		pushData, err := ExtractPushData(0, witness)
+		if err != nil {
+			return nil, err
+		}
+		// skip PROTOCOL_ID
+		if pushData != nil && bytes.HasPrefix(pushData, PROTOCOL_ID) {
+			return pushData[4:], nil
 		}
 	}
 	return nil, nil
@@ -321,22 +313,14 @@ func (r Relayer) Read(height uint64) ([][]byte, error) {
 	var data [][]byte
 	for _, tx := range block.Transactions {
 		if len(tx.TxIn[0].Witness) > 1 {
-			// FIXME: UGLY HACK
-			// ideally we should template match the script and extract
-			// see: txscript.ExtractAtomicSwapDataPushes
 			witness := tx.TxIn[0].Witness[1]
-			start := bytes.Index(witness, PROTOCOL_ID)
-			// script template:
-			//                                           < ---------          35 bytes        --------->
-			// OP_FALSE OP_IF + "roll" marker +  <data> + canonical int + 32 bytes pubkey + OP_CHECKSIG
-			//                   ^                      ^
-			// start ------------                       ^
-			// end -------------------------------------
-			if start > 0 && len(witness) > start+35 {
-				end := len(witness) - 35
-				if end > start {
-					data = append(data, witness[start+4:end])
-				}
+			pushData, err := ExtractPushData(0, witness)
+			if err != nil {
+				return nil, err
+			}
+			// skip PROTOCOL_ID
+			if pushData != nil && bytes.HasPrefix(pushData, PROTOCOL_ID) {
+				data = append(data, pushData[4:])
 			}
 		}
 	}
@@ -358,4 +342,51 @@ func (r Relayer) Write(data []byte) (*chainhash.Hash, error) {
 		return nil, err
 	}
 	return hash, nil
+}
+
+func ExtractPushData(version uint16, pkScript []byte) ([]byte, error) {
+	type templateMatch struct {
+		expectPushData bool
+		maxPushDatas   int
+		opcode         byte
+		extractedData  []byte
+	}
+	var template = [6]templateMatch{
+		{opcode: txscript.OP_FALSE},
+		{opcode: txscript.OP_IF},
+		{expectPushData: true, maxPushDatas: 10},
+		{opcode: txscript.OP_ENDIF},
+		{expectPushData: true, maxPushDatas: 1},
+		{opcode: txscript.OP_CHECKSIG},
+	}
+
+	var templateOffset int
+	tokenizer := txscript.MakeScriptTokenizer(version, pkScript)
+out:
+	for tokenizer.Next() {
+		// Not a rollkit script if it has more opcodes than expected in the
+		// template.
+		if templateOffset >= len(template) {
+			return nil, nil
+		}
+
+		op := tokenizer.Opcode()
+		tplEntry := &template[templateOffset]
+		if tplEntry.expectPushData {
+			for i := 0; i < tplEntry.maxPushDatas; i++ {
+				data := tokenizer.Data()
+				if data == nil {
+					break out
+				}
+				tplEntry.extractedData = append(tplEntry.extractedData, data...)
+				tokenizer.Next()
+			}
+		} else if op != tplEntry.opcode {
+			return nil, nil
+		}
+
+		templateOffset++
+	}
+	// TODO: skipping err checks
+	return template[2].extractedData, nil
 }
