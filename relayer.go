@@ -46,7 +46,7 @@ func chunkSlice(slice []byte, chunkSize int) [][]byte {
 // createTaprootAddress returns an address committing to a Taproot script with
 // a single leaf containing the spend path with the script:
 // <embedded data> OP_DROP <pubkey> OP_CHECKSIG
-func createTaprootAddress(embeddedData []byte) (string, error) {
+func createTaprootAddress(embeddedData []byte, network *chaincfg.Params) (string, error) {
 	privKey, err := btcutil.DecodeWIF(bobPrivateKey)
 	if err != nil {
 		return "", fmt.Errorf("error decoding bob private key: %v", err)
@@ -88,7 +88,7 @@ func createTaprootAddress(embeddedData []byte) (string, error) {
 
 	// Step 3: Generate the Bech32m address.
 	address, err := btcutil.NewAddressTaproot(
-		schnorr.SerializePubKey(outputKey), &chaincfg.RegressionNetParams)
+		schnorr.SerializePubKey(outputKey), network)
 	if err != nil {
 		return "", fmt.Errorf("error encoding Taproot address: %v", err)
 	}
@@ -108,6 +108,7 @@ func payToTaprootScript(taprootKey *btcec.PublicKey) ([]byte, error) {
 // to write binary blobs to the blockchain.
 type Relayer struct {
 	client *rpcclient.Client
+	network *chaincfg.Params
 }
 
 // close shuts down the client.
@@ -121,7 +122,7 @@ func (r Relayer) close() {
 // returns the hash of the commit transaction and error, if any.
 func (r Relayer) commitTx(addr string) (*chainhash.Hash, error) {
 	// Create a transaction that sends 0.001 BTC to the given address.
-	address, err := btcutil.DecodeAddress(addr, &chaincfg.RegressionNetParams)
+	address, err := btcutil.DecodeAddress(addr, r.network)
 	if err != nil {
 		return nil, fmt.Errorf("error decoding recipient address: %v", err)
 	}
@@ -257,6 +258,7 @@ type Config struct {
 	Pass         string
 	HTTPPostMode bool
 	DisableTLS   bool
+	Network *chaincfg.Params
 }
 
 // NewRelayer returns a new relayer. It can error if there's an RPC connection
@@ -278,6 +280,7 @@ func NewRelayer(config Config) (*Relayer, error) {
 	}
 	return &Relayer{
 		client: client,
+		network: config.Network,
 	}, nil
 }
 
@@ -329,7 +332,7 @@ func (r Relayer) Read(height uint64) ([][]byte, error) {
 
 func (r Relayer) Write(data []byte) (*chainhash.Hash, error) {
 	data = append(PROTOCOL_ID, data...)
-	address, err := createTaprootAddress(data)
+	address, err := createTaprootAddress(data, r.network)
 	if err != nil {
 		return nil, err
 	}
