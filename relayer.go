@@ -236,6 +236,7 @@ type Config struct {
 	DisableTLS          bool
 	Network             string
 	RevealSatAmount     int64
+	RevealSatFee        int64
 	RevealPrivateKeyWIF string
 }
 
@@ -279,7 +280,7 @@ func NewRelayer(config Config) (*Relayer, error) {
 	if amount == 0 {
 		amount = btcutil.Amount(DEFAULT_SAT_AMOUNT)
 	}
-	fee := btcutil.Amount(config.RevealSatAmount)
+	fee := btcutil.Amount(config.RevealSatFee)
 	if fee == 0 {
 		fee = btcutil.Amount(DEFAULT_SAT_FEE)
 	}
