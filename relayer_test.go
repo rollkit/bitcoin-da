@@ -38,11 +38,11 @@ func ExampleRelayer_Write() {
 func ExampleRelayer_Read() {
 	// Example usage
 	relayer, err := bitcoinda.NewRelayer(bitcoinda.Config{
-		Host:         "localhost:18332",
-		User:         "rpcuser",
-		Pass:         "rpcpass",
-		HTTPPostMode: true,
-		DisableTLS:   true,
+		Host:                "localhost:18332",
+		User:                "rpcuser",
+		Pass:                "rpcpass",
+		HTTPPostMode:        true,
+		DisableTLS:          true,
 	})
 	if err != nil {
 		fmt.Println(err)
