@@ -18,7 +18,7 @@ import (
 var PROTOCOL_ID = []byte{0x72, 0x6f, 0x6c, 0x6c}
 
 const (
-	DEFAULT_SAT_AMOUNT  = 1000
+	DEFAULT_SAT_AMOUNT  = 100000
 	DEFAULT_SAT_FEE     = 200
 	DEFAULT_PRIVATE_KEY = "5JoQtsKQuH8hC9MyvfJAqo6qmKLm8ePYNucs7tPu2YxG12trzBt"
 )
@@ -205,7 +205,7 @@ func (r Relayer) revealTx(embeddedData []byte, commitHash *chainhash.Hash) (*cha
 		txSize := tx.SerializeSize()
 		fee = int64(revealSatFee) * int64(txSize)
 	} else {
-		fee = 99000
+		fee = 1e3
 	}
 
 	txOut := &wire.TxOut{
