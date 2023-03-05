@@ -6,7 +6,6 @@ import (
 
 	"github.com/btcsuite/btcd/btcec/v2"
 	"github.com/btcsuite/btcd/btcec/v2/schnorr"
-	"github.com/btcsuite/btcd/btcjson"
 	"github.com/btcsuite/btcd/btcutil"
 	"github.com/btcsuite/btcd/chaincfg"
 	"github.com/btcsuite/btcd/chaincfg/chainhash"
@@ -100,6 +99,7 @@ type Relayer struct {
 	client              *rpcclient.Client
 	network             *chaincfg.Params
 	revealSatAmount     btcutil.Amount
+	revealSatFee        btcutil.Amount
 	revealPrivateKeyWIF *btcutil.WIF
 }
 
@@ -189,13 +189,8 @@ func (r Relayer) revealTx(embeddedData []byte, commitHash *chainhash.Hash) (*cha
 			Index: uint32(commitIndex),
 		},
 	})
-
-	revealSatFee, err := r.client.EstimateSmartFee(1, &btcjson.EstimateModeConservative)
-	if err != nil {
-		return nil, fmt.Errorf("error getting sat fee: %v", err)
-	}
 	txOut := &wire.TxOut{
-		Value:    int64(r.revealSatAmount - btcutil.Amount(*revealSatFee.FeeRate)),
+		Value:    int64(r.revealSatAmount - r.revealSatFee),
 		PkScript: p2trScript,
 	}
 	tx.AddTxOut(txOut)
@@ -241,6 +236,7 @@ type Config struct {
 	DisableTLS          bool
 	Network             string
 	RevealSatAmount     int64
+	RevealSatFee        int64
 	RevealPrivateKeyWIF string
 }
 
@@ -284,10 +280,15 @@ func NewRelayer(config Config) (*Relayer, error) {
 	if amount == 0 {
 		amount = btcutil.Amount(DEFAULT_SAT_AMOUNT)
 	}
+	fee := btcutil.Amount(config.RevealSatFee)
+	if fee == 0 {
+		fee = btcutil.Amount(DEFAULT_SAT_FEE)
+	}
 	return &Relayer{
 		client:              client,
 		network:             network,
 		revealSatAmount:     amount,
+		revealSatFee:        fee,
 		revealPrivateKeyWIF: wif,
 	}, nil
 }
