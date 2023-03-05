@@ -17,14 +17,15 @@ import (
 // PROTOCOL_ID allows data identification by looking at the first few bytes
 var PROTOCOL_ID = []byte{0x72, 0x6f, 0x6c, 0x6c}
 
+const (
+	DEFAULT_SAT_AMOUNT  = 100000
+	DEFAULT_SAT_FEE     = 200
+	DEFAULT_PRIVATE_KEY = "5JoQtsKQuH8hC9MyvfJAqo6qmKLm8ePYNucs7tPu2YxG12trzBt"
+)
+
 // Sample data and keys for testing.
 // bob key pair is used for signing reveal tx
 // internal key pair is used for tweaking
-var (
-	bobPrivateKey      = "5JoQtsKQuH8hC9MyvfJAqo6qmKLm8ePYNucs7tPu2YxG12trzBt"
-	internalPrivateKey = "5JGgKfRy6vEcWBpLJV5FXUfMGNXzvdWzQHUM1rVLEUJfvZUSwvS"
-)
-
 // chunkSlice splits input slice into max chunkSize length slices
 func chunkSlice(slice []byte, chunkSize int) [][]byte {
 	var chunks [][]byte
@@ -46,13 +47,8 @@ func chunkSlice(slice []byte, chunkSize int) [][]byte {
 // createTaprootAddress returns an address committing to a Taproot script with
 // a single leaf containing the spend path with the script:
 // <embedded data> OP_DROP <pubkey> OP_CHECKSIG
-func createTaprootAddress(embeddedData []byte) (string, error) {
-	privKey, err := btcutil.DecodeWIF(bobPrivateKey)
-	if err != nil {
-		return "", fmt.Errorf("error decoding bob private key: %v", err)
-	}
-
-	pubKey := privKey.PrivKey.PubKey()
+func createTaprootAddress(embeddedData []byte, network *chaincfg.Params, revealPrivateKeyWIF *btcutil.WIF) (string, error) {
+	pubKey := revealPrivateKeyWIF.PrivKey.PubKey()
 
 	// Step 1: Construct the Taproot script with one leaf.
 	builder := txscript.NewScriptBuilder()
@@ -73,22 +69,15 @@ func createTaprootAddress(embeddedData []byte) (string, error) {
 	tapLeaf := txscript.NewBaseTapLeaf(pkScript)
 	tapScriptTree := txscript.AssembleTaprootScriptTree(tapLeaf)
 
-	internalPrivKey, err := btcutil.DecodeWIF(internalPrivateKey)
-	if err != nil {
-		return "", fmt.Errorf("error decoding internal private key: %v", err)
-	}
-
-	internalPubKey := internalPrivKey.PrivKey.PubKey()
-
 	// Step 2: Generate the Taproot tree.
 	tapScriptRootHash := tapScriptTree.RootNode.TapHash()
 	outputKey := txscript.ComputeTaprootOutputKey(
-		internalPubKey, tapScriptRootHash[:],
+		pubKey, tapScriptRootHash[:],
 	)
 
 	// Step 3: Generate the Bech32m address.
 	address, err := btcutil.NewAddressTaproot(
-		schnorr.SerializePubKey(outputKey), &chaincfg.RegressionNetParams)
+		schnorr.SerializePubKey(outputKey), network)
 	if err != nil {
 		return "", fmt.Errorf("error encoding Taproot address: %v", err)
 	}
@@ -107,7 +96,10 @@ func payToTaprootScript(taprootKey *btcec.PublicKey) ([]byte, error) {
 // Relayer is a bitcoin client wrapper which provides reader and writer methods
 // to write binary blobs to the blockchain.
 type Relayer struct {
-	client *rpcclient.Client
+	client              *rpcclient.Client
+	network             *chaincfg.Params
+	revealSatAmount     btcutil.Amount
+	revealPrivateKeyWIF *btcutil.WIF
 }
 
 // close shuts down the client.
@@ -120,18 +112,13 @@ func (r Relayer) close() {
 // the script satisfying the tapscript spend path that commits to the data. It
 // returns the hash of the commit transaction and error, if any.
 func (r Relayer) commitTx(addr string) (*chainhash.Hash, error) {
-	// Create a transaction that sends 0.001 BTC to the given address.
-	address, err := btcutil.DecodeAddress(addr, &chaincfg.RegressionNetParams)
+	// Create a transaction that sends revealSatAmount BTC to the given address.
+	address, err := btcutil.DecodeAddress(addr, r.network)
 	if err != nil {
 		return nil, fmt.Errorf("error decoding recipient address: %v", err)
 	}
 
-	amount, err := btcutil.NewAmount(0.001)
-	if err != nil {
-		return nil, fmt.Errorf("error creating new amount: %v", err)
-	}
-
-	hash, err := r.client.SendToAddress(address, amount)
+	hash, err := r.client.SendToAddress(address, btcutil.Amount(r.revealSatAmount))
 	if err != nil {
 		return nil, fmt.Errorf("error sending to address: %v", err)
 	}
@@ -152,26 +139,14 @@ func (r Relayer) revealTx(embeddedData []byte, commitHash *chainhash.Hash) (*cha
 	var commitIndex int
 	var commitOutput *wire.TxOut
 	for i, out := range rawCommitTx.MsgTx().TxOut {
-		if out.Value == 100000 {
+		if out.Value == int64(r.revealSatAmount) {
 			commitIndex = i
 			commitOutput = out
 			break
 		}
 	}
 
-	privKey, err := btcutil.DecodeWIF(bobPrivateKey)
-	if err != nil {
-		return nil, fmt.Errorf("error decoding bob private key: %v", err)
-	}
-
-	pubKey := privKey.PrivKey.PubKey()
-
-	internalPrivKey, err := btcutil.DecodeWIF(internalPrivateKey)
-	if err != nil {
-		return nil, fmt.Errorf("error decoding internal private key: %v", err)
-	}
-
-	internalPubKey := internalPrivKey.PrivKey.PubKey()
+	pubKey := r.revealPrivateKeyWIF.PrivKey.PubKey()
 
 	// Our script will be a simple <embedded-data> OP_DROP OP_CHECKSIG as the
 	// sole leaf of a tapscript tree.
@@ -194,12 +169,12 @@ func (r Relayer) revealTx(embeddedData []byte, commitHash *chainhash.Hash) (*cha
 	tapScriptTree := txscript.AssembleTaprootScriptTree(tapLeaf)
 
 	ctrlBlock := tapScriptTree.LeafMerkleProofs[0].ToControlBlock(
-		internalPubKey,
+		pubKey,
 	)
 
 	tapScriptRootHash := tapScriptTree.RootNode.TapHash()
 	outputKey := txscript.ComputeTaprootOutputKey(
-		internalPubKey, tapScriptRootHash[:],
+		pubKey, tapScriptRootHash[:],
 	)
 	p2trScript, err := payToTaprootScript(outputKey)
 	if err != nil {
@@ -213,8 +188,29 @@ func (r Relayer) revealTx(embeddedData []byte, commitHash *chainhash.Hash) (*cha
 			Index: uint32(commitIndex),
 		},
 	})
+
+	var fee int64
+	if r.network.Name != "regtest" {
+		smartFee, err := r.client.EstimateSmartFee(1, nil)
+		if err != nil {
+			return nil, fmt.Errorf("error getting sat fee: %v", err)
+		}
+		if smartFee.FeeRate == nil {
+			return nil, fmt.Errorf("got nil smart fee for non regtest environment: %v", err)
+		}
+		revealSatFee, err := btcutil.NewAmount(*smartFee.FeeRate)
+		if err != nil {
+			return nil, fmt.Errorf("error getting sat fee: %v", err)
+		}
+		txSize := tx.SerializeSize()
+		fee = int64(revealSatFee) * int64(txSize)
+	} else {
+		fee = 1e3
+	}
+
 	txOut := &wire.TxOut{
-		Value: 1e3, PkScript: p2trScript,
+		Value:    fee,
+		PkScript: p2trScript,
 	}
 	tx.AddTxOut(txOut)
 
@@ -227,7 +223,7 @@ func (r Relayer) revealTx(embeddedData []byte, commitHash *chainhash.Hash) (*cha
 	sig, err := txscript.RawTxInTapscriptSignature(
 		tx, sigHashes, 0, txOut.Value,
 		txOut.PkScript, tapLeaf, txscript.SigHashDefault,
-		privKey.PrivKey,
+		r.revealPrivateKeyWIF.PrivKey,
 	)
 
 	if err != nil {
@@ -252,11 +248,14 @@ func (r Relayer) revealTx(embeddedData []byte, commitHash *chainhash.Hash) (*cha
 }
 
 type Config struct {
-	Host         string
-	User         string
-	Pass         string
-	HTTPPostMode bool
-	DisableTLS   bool
+	Host                string
+	User                string
+	Pass                string
+	HTTPPostMode        bool
+	DisableTLS          bool
+	Network             string
+	RevealSatAmount     int64
+	RevealPrivateKeyWIF string
 }
 
 // NewRelayer returns a new relayer. It can error if there's an RPC connection
@@ -276,8 +275,34 @@ func NewRelayer(config Config) (*Relayer, error) {
 	if err != nil {
 		return nil, fmt.Errorf("error creating btcd RPC client: %v", err)
 	}
+	var network *chaincfg.Params
+	switch config.Network {
+	case "mainnet":
+		network = &chaincfg.MainNetParams
+	case "testnet":
+		network = &chaincfg.TestNet3Params
+	case "regtest":
+		network = &chaincfg.RegressionNetParams
+	default:
+		network = &chaincfg.RegressionNetParams
+	}
+	revealPrivateKeyWIF := config.RevealPrivateKeyWIF
+	if revealPrivateKeyWIF == "" {
+		revealPrivateKeyWIF = DEFAULT_PRIVATE_KEY
+	}
+	wif, err := btcutil.DecodeWIF(revealPrivateKeyWIF)
+	if err != nil {
+		return nil, fmt.Errorf("error decoding reveal private key: %v", err)
+	}
+	amount := btcutil.Amount(config.RevealSatAmount)
+	if amount == 0 {
+		amount = btcutil.Amount(DEFAULT_SAT_AMOUNT)
+	}
 	return &Relayer{
-		client: client,
+		client:              client,
+		network:             network,
+		revealSatAmount:     amount,
+		revealPrivateKeyWIF: wif,
 	}, nil
 }
 
@@ -298,6 +323,14 @@ func (r Relayer) ReadTransaction(hash *chainhash.Hash) ([]byte, error) {
 		}
 	}
 	return nil, nil
+}
+
+func (r Relayer) LatestHeight() (int64, error) {
+	latest, err := r.client.GetBlockCount()
+	if err != nil {
+		return -1, err
+	}
+	return latest, nil
 }
 
 func (r Relayer) Read(height uint64) ([][]byte, error) {
@@ -329,7 +362,7 @@ func (r Relayer) Read(height uint64) ([][]byte, error) {
 
 func (r Relayer) Write(data []byte) (*chainhash.Hash, error) {
 	data = append(PROTOCOL_ID, data...)
-	address, err := createTaprootAddress(data)
+	address, err := createTaprootAddress(data, r.network, r.revealPrivateKeyWIF)
 	if err != nil {
 		return nil, err
 	}
