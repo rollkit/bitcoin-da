@@ -99,7 +99,6 @@ type Relayer struct {
 	client              *rpcclient.Client
 	network             *chaincfg.Params
 	revealSatAmount     btcutil.Amount
-	revealSatFee        btcutil.Amount
 	revealPrivateKeyWIF *btcutil.WIF
 }
 
@@ -196,6 +195,9 @@ func (r Relayer) revealTx(embeddedData []byte, commitHash *chainhash.Hash) (*cha
 		if err != nil {
 			return nil, fmt.Errorf("error getting sat fee: %v", err)
 		}
+		if smartFee.FeeRate == nil {
+			return nil, fmt.Errorf("got nil smart fee for non regtest environment: %v", err)
+		}
 		revealSatFee, err := btcutil.NewAmount(*smartFee.FeeRate)
 		if err != nil {
 			return nil, fmt.Errorf("error getting sat fee: %v", err)
@@ -203,7 +205,7 @@ func (r Relayer) revealTx(embeddedData []byte, commitHash *chainhash.Hash) (*cha
 		txSize := tx.SerializeSize()
 		fee = int64(revealSatFee) * int64(txSize)
 	} else {
-		fee = int64(r.revealSatAmount - r.revealSatFee)
+		fee = 99000
 	}
 
 	txOut := &wire.TxOut{
@@ -253,7 +255,6 @@ type Config struct {
 	DisableTLS          bool
 	Network             string
 	RevealSatAmount     int64
-	RevealSatFee        int64
 	RevealPrivateKeyWIF string
 }
 
@@ -297,15 +298,10 @@ func NewRelayer(config Config) (*Relayer, error) {
 	if amount == 0 {
 		amount = btcutil.Amount(DEFAULT_SAT_AMOUNT)
 	}
-	fee := btcutil.Amount(config.RevealSatFee)
-	if fee == 0 {
-		fee = btcutil.Amount(DEFAULT_SAT_FEE)
-	}
 	return &Relayer{
 		client:              client,
 		network:             network,
 		revealSatAmount:     amount,
-		revealSatFee:        fee,
 		revealPrivateKeyWIF: wif,
 	}, nil
 }
