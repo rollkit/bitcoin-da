@@ -1,8 +1,8 @@
-# Script to generate a new block every minute
+# Script to generate a new block every second
 # Put this script at the root of your unpacked folder
 #!/bin/bash
 
-echo "Generating a block every minute. Press [CTRL+C] to stop.."
+echo "Generating a block every second. Press [CTRL+C] to stop.."
 
 address=`bitcoin-core.cli -regtest -rpcport=18332 -rpcuser=rpcuser -rpcpassword=rpcpass getnewaddress`
 
