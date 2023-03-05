@@ -189,8 +189,25 @@ func (r Relayer) revealTx(embeddedData []byte, commitHash *chainhash.Hash) (*cha
 			Index: uint32(commitIndex),
 		},
 	})
+
+	var fee int64
+	if r.network.Name != "regtest" {
+		smartFee, err := r.client.EstimateSmartFee(1, nil)
+		if err != nil {
+			return nil, fmt.Errorf("error getting sat fee: %v", err)
+		}
+		revealSatFee, err := btcutil.NewAmount(*smartFee.FeeRate)
+		if err != nil {
+			return nil, fmt.Errorf("error getting sat fee: %v", err)
+		}
+		txSize := tx.SerializeSize()
+		fee = int64(revealSatFee) * int64(txSize)
+	} else {
+		fee = int64(r.revealSatAmount - r.revealSatFee)
+	}
+
 	txOut := &wire.TxOut{
-		Value:    int64(r.revealSatAmount - r.revealSatFee),
+		Value:    fee,
 		PkScript: p2trScript,
 	}
 	tx.AddTxOut(txOut)
