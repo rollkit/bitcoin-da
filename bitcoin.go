@@ -70,7 +70,7 @@ func (b *BitcoinDA) Submit(ctx context.Context, daBlobs []da.Blob, gasPrice floa
 	  }
 	  ids = append(ids, hash.CloneBytes())
 	}
-	return nil, nil
+	return ids, nil
 }
 
 // Validate validates Commitments against the corresponding Proofs. This should be possible without retrieving the Blobs.
