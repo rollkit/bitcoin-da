@@ -1,0 +1,47 @@
+# Tests / Code Coverage workflow
+# This workflow is triggered by ci_release.yml workflow
+name: Tests / Code Coverage
+on:
+  workflow_call:
+
+jobs:
+  go_mod_tidy_check:
+    name: Go Mod Tidy Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: ./go.mod
+      - run: go mod tidy
+      - name: check for diff
+        run: git diff --exit-code
+
+  unit_test:
+    name: Run Unit Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: set up go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: ./go.mod
+      - name: Run unit test
+        run: go test -v -race -covermode=atomic -coverprofile=coverage.txt
+      - name: upload coverage report
+        uses: codecov/codecov-action@v4.5.0
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          file: ./coverage.txt
+
+  integration_test:
+    name: Run Integration Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: set up go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: ./go.mod
+      - name: Integration Tests
+        run: echo "No integration tests yet"

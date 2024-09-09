@@ -1,0 +1,46 @@
+run:
+  timeout: 5m
+  modules-download-mode: readonly
+
+linters:
+  enable:
+    - errorlint
+    - errcheck
+    - gofmt
+    - goimports
+    - gosec
+    - gosimple
+    - govet
+    - ineffassign
+    - misspell
+    - revive
+    - staticcheck
+    - typecheck
+    - unconvert
+    - unused
+
+issues:
+  exclude-use-default: false
+  # mempool and indexer code is borrowed from Tendermint
+  exclude-dirs:
+    - mempool
+    - state/indexer
+    - state/txindex
+    - third_party
+  include:
+    - EXC0012 # EXC0012 revive: Annoying issue about not having a comment. The rare codebase has such comments
+    - EXC0014 # EXC0014 revive: Annoying issue about not having a comment. The rare codebase has such comments
+
+linters-settings:
+  revive:
+    rules:
+      - name: package-comments
+        disabled: true
+      - name: duplicated-imports
+        severity: warning
+      - name: exported
+        arguments:
+          - disableStutteringCheck
+
+  goimports:
+    local-prefixes: github.com/rollkit
