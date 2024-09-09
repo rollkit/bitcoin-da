@@ -210,7 +210,7 @@ func (r Relayer) revealTx(embeddedData []byte, commitHash *chainhash.Hash) (*cha
 	tx.AddTxIn(&wire.TxIn{
 		PreviousOutPoint: wire.OutPoint{
 			Hash:  *rawCommitTx.Hash(),
-			Index: uint32(commitIndex),
+			Index: uint32(commitIndex), // nolint:gosec
 		},
 	})
 	txOut := &wire.TxOut{
@@ -303,7 +303,7 @@ func (r Relayer) ReadTransaction(hash *chainhash.Hash) ([]byte, error) {
 }
 
 func (r Relayer) Read(height uint64) ([][]byte, error) {
-	hash, err := r.client.GetBlockHash(int64(height))
+	hash, err := r.client.GetBlockHash(int64(height)) // nolint:gosec
 	if err != nil {
 		return nil, err
 	}
