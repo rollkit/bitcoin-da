@@ -43,7 +43,7 @@ jobs:
 
   # Make a release if this is a manually trigger job, i.e. workflow_dispatch
   release:
-    needs: [lint, test, proto, branch_name]
+    needs: [lint, test, branch_name]
     runs-on: ubuntu-latest
     if: ${{ github.event_name == 'workflow_dispatch' }}
     permissions: "write-all"
