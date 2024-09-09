@@ -1,11 +1,8 @@
-bitcoin-da:
-===========
-
+# bitcoin-da
 
 This package provides a reader / writer interface to bitcoin.
 
-Example:
-========
+## Example
 
 	// ExampleRelayer_Read tests that reading data from the blockchain works as
 	// expected.
@@ -46,8 +43,7 @@ Example:
 		// Output: rollkit-btc: gm
 	}
 
-Tests:
-======
+## Tests
 
 Running the tests requires a local regtest node.
 
@@ -68,8 +64,7 @@ Idle for a while till coinbase coins mature.
 	PASS
 	ok      github.com/rollkit/bitcoin-da   0.375s
 
-Writer:
-=======
+## Writer
 
 A commit transaction containing a taproot with one leaf script
 
@@ -83,21 +78,16 @@ A commit transaction containing a taproot with one leaf script
 
 is used to create a new bech32m address and is sent an output.
 
-
 A reveal transaction then posts the embedded data on chain and spends the
 commit output.
 
-
-Reader:
-========
+## Reader
 
 The address of the reveal transaction is implicity used as a namespace.
-
 
 Clients may call listunspent on the reveal transaction address to get a list of
 transactions and read the embedded data from the first witness input.
 
-Spec:
-=====
+## Spec
 
 For more details, [read the spec](./spec.md)

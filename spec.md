@@ -13,7 +13,7 @@ Define a common read and write path that can be used by rollup development kits 
 
 ## How?
 
-Ordinals developer Casey Rodarmor found a way to essentially create the equivalent of “calldata” on bitcoin script thanks to the Taproot upgrade. Additionally, this “calldata” can be as large as the bitcoin block size limit (4MB), benefits from the SegWit discount, making “blobspace” cheaper and more abundant than on Ethereum as of February 20, 2023. 
+Ordinals developer Casey Rodarmor found a way to essentially create the equivalent of “calldata” on bitcoin script thanks to the Taproot upgrade. Additionally, this “calldata” can be as large as the bitcoin block size limit (4MB), benefits from the SegWit discount, making “blobspace” cheaper and more abundant than on Ethereum as of February 20, 2023.
 
 For the purpose of writing data to Bitcoin in order to use it as a DA layer, we will be [inscribing](https://docs.ordinals.com/inscriptions.html) our block data.
 
@@ -24,7 +24,7 @@ In order to inscribe our data into a satoshi, we need to use Taproot scripts, si
 1. First, in the commit transaction, a taproot output committing to a script containing the inscription content is created.
 2. Second, in the reveal transaction, the output created by the commit transaction is spent, revealing the inscription content on-chain.
 
-But what about the actual data: 
+But what about the actual data:
 
 “Inscription content is serialized using data pushes within unexecuted conditionals, called an "envelopes". Envelopes consist of an `OP_FALSE OP_IF … OP_ENDIF`
  wrapping any number of data pushes. Because envelopes are effectively no-ops, they do not change the semantics of the script in which they are included, and can be combined with any other locking script.”
