@@ -4,7 +4,7 @@ go 1.21.1
 
 require (
 	github.com/btcsuite/btcd v0.23.4
-	github.com/btcsuite/btcd/btcec/v2 v2.1.3
+	github.com/btcsuite/btcd/btcec/v2 v2.3.4
 	github.com/btcsuite/btcd/btcutil v1.1.3
 	github.com/btcsuite/btcd/chaincfg/chainhash v1.0.1
 )
