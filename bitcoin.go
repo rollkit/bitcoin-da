@@ -4,19 +4,23 @@ import (
 	"context"
 
 	"github.com/btcsuite/btcd/chaincfg/chainhash"
+
 	"github.com/rollkit/go-da"
 )
 
-const DefaultMaxBytes = 1048576;
+// DefaultMaxBytes is the default max blob size
+const DefaultMaxBytes = 1048576
 
+// BitcoinDA is a Data Availability layer for Bitcoin.
 type BitcoinDA struct {
-  relayer *Relayer
+	relayer *Relayer
 }
 
+// NewBitcoinDA creates a new BitcoinDA.
 func NewBitcoinDA(relayer *Relayer) *BitcoinDA {
-  return &BitcoinDA{
-    relayer: relayer,
-  }
+	return &BitcoinDA{
+		relayer: relayer,
+	}
 }
 
 // MaxBlobSize returns the max blob size
@@ -26,21 +30,20 @@ func (b *BitcoinDA) MaxBlobSize(ctx context.Context) (uint64, error) {
 
 // Get returns Blob for each given ID, or an error.
 func (b *BitcoinDA) Get(ctx context.Context, ids []da.ID, ns da.Namespace) ([]da.Blob, error) {
-  var blobs []da.Blob
-  for _, id := range ids {
-  	hash, err := chainhash.NewHash(id)
-  	if err != nil {
-  		return nil, err
-  	}
-  	blob, err := b.relayer.ReadTransaction(hash)
-  	if err != nil {
-  		return nil, err
-  	}
-  	blobs = append(blobs, blob)
-  }
-  return blobs, nil
+	var blobs []da.Blob
+	for _, id := range ids {
+		hash, err := chainhash.NewHash(id)
+		if err != nil {
+			return nil, err
+		}
+		blob, err := b.relayer.ReadTransaction(hash)
+		if err != nil {
+			return nil, err
+		}
+		blobs = append(blobs, blob)
+	}
+	return blobs, nil
 }
-
 
 // Commit creates a Commitment for each given Blob.
 func (b *BitcoinDA) Commit(ctx context.Context, daBlobs []da.Blob, ns da.Namespace) ([]da.Commitment, error) {
@@ -64,11 +67,11 @@ func (b *BitcoinDA) GetProofs(ctx context.Context, daIDs []da.ID, ns da.Namespac
 func (b *BitcoinDA) Submit(ctx context.Context, daBlobs []da.Blob, gasPrice float64, ns da.Namespace) ([]da.ID, error) {
 	var ids []da.ID
 	for _, blob := range daBlobs {
-	  hash, err := b.relayer.Write(blob)
-	  if err != nil {
-	    return nil, err
-	  }
-	  ids = append(ids, hash.CloneBytes())
+		hash, err := b.relayer.Write(blob)
+		if err != nil {
+			return nil, err
+		}
+		ids = append(ids, hash.CloneBytes())
 	}
 	return ids, nil
 }
