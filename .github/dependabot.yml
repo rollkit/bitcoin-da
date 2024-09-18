@@ -12,7 +12,7 @@ updates:
       patch-updates:
         applies-to: version-updates
         update-types:
-          - "minor"
+          - "patch"
   - package-ecosystem: gomod
     directory: "/"
     schedule:
@@ -25,4 +25,4 @@ updates:
       patch-updates:
         applies-to: version-updates
         update-types:
-          - "minor"
+          - "patch"
