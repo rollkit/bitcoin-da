@@ -1,0 +1,66 @@
+name: Housekeeping
+
+on:
+  issues:
+    types: [opened]
+  pull_request_target:
+    types: [opened, ready_for_review]
+
+jobs:
+  issue-management:
+    if: ${{ github.event.issue }}
+    name: Add issues to project and add triage label
+    uses: rollkit/.github/.github/workflows/reusable_housekeeping.yml@v0.4.1
+    secrets: inherit
+    permissions:
+      issues: write
+      pull-requests: write
+    with:
+      run-labels: true
+      labels-to-add: "needs-triage"
+      run-projects: true
+      project-url: https://github.com/orgs/rollkit/projects/7
+
+  add-pr-to-project:
+    # ignore dependabot PRs
+    if: ${{ github.event.pull_request && github.actor != 'dependabot[bot]' }}
+    name: Add PRs to project
+    uses: rollkit/.github/.github/workflows/reusable_housekeeping.yml@v0.4.1
+    secrets: inherit
+    permissions:
+      issues: write
+      pull-requests: write
+    with:
+      run-projects: true
+      project-url: https://github.com/orgs/rollkit/projects/7
+
+  auto-add-reviewer:
+    name: Auto add reviewer to PR
+    if: github.event.pull_request
+    uses: rollkit/.github/.github/workflows/reusable_housekeeping.yml@v0.4.1
+    secrets: inherit
+    permissions:
+      issues: write
+      pull-requests: write
+    with:
+      run-auto-request-review: true
+
+  auto-add-assignee:
+    # ignore dependabot PRs
+    if: ${{ github.event.pull_request && github.actor != 'dependabot[bot]' }}
+    name: Assign issue and PR to creator
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+      pull-requests: write
+    steps:
+      - name: Set pull_request url and creator login
+        # yamllint disable rule:line-length
+        run: |
+          echo "PR=${{ github.event.pull_request.html_url }}" >> $GITHUB_ENV
+          echo "CREATOR=${{ github.event.pull_request.user.login }}" >> $GITHUB_ENV
+        # yamllint enable rule:line-length
+      - name: Assign PR to creator
+        run: gh pr edit ${{ env.PR }} --add-assignee ${{ env.CREATOR }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
