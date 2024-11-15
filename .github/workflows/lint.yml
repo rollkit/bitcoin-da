@@ -34,10 +34,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: rollkit/.github/.github/actions/yamllint@v0.4.1
+      - uses: rollkit/.github/.github/actions/yamllint@v0.5.0
 
   markdown-lint:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: rollkit/.github/.github/actions/markdown-lint@v0.4.1
+      - uses: rollkit/.github/.github/actions/markdown-lint@v0.5.0
